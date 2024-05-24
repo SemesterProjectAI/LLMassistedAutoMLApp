@@ -70,7 +70,7 @@ def data_report(df):
         
         - Class Distribution analysis :
             - Class distribution : {class_distribution.to_string()}
-            {'Warning : Class imbalance detected' if class_imbalance else 'No class imbalance detected'}
+        {'Warning : Class imbalance detected' if class_imbalance else 'No class imbalance detected'}
     
         - Feature analysis :
             - Feature names : {features.columns.to_list()}
@@ -83,4 +83,37 @@ def data_report(df):
             - Number of integer features : {int_counts}
             - Integer features : {int_list}      
     """
-    return report
+    return report, target
+
+
+def suggest_metrics(report):
+    prompt = f"""
+    The classification problem under investigation is based on a network intrusion detection dataset. 
+    This dataset contains DOS, Probe, R2L, and U2R attack types, which are all grouped under the 
+    "attack" class (label: 1). Conversely, the "normal" class is represented by label 0. 
+    Below are the dataset's characteristics:
+    {report}.
+
+    For this specific inquiry, you are tasked with recommending a suitable hyperparameter optimization 
+    metric for training a XGBoost model. It is crucial that the model should accurately identify genuine 
+    threats (attacks) without raising excessive false alarms on benign activities. They are equally important.
+    Given the problem context and dataset characteristics, suggest only the name of one of the built-in 
+    metrics: 
+    - 'accuracy'
+    - 'roc_auc' (ROCAUC score)
+    - 'f1' (F1 score)
+    - 'balanced_accuracy' (It is the macro-average of recall scores per class or, equivalently, raw 
+    accuracy where each sample is weighted according to the inverse prevalence of its true class) 
+    - 'average_precision'
+    - 'precision'
+    - 'recall'
+    - 'neg_brier_score'
+
+
+    Please first briefly explain your reasoning and then provide the recommended metric name. 
+    Your recommendation should be enclosed between markers [BEGIN] and [END], with standalone string for 
+    indicating the metric name.
+    Do not provide other settings or configurations.
+    """
+
+    return prompt

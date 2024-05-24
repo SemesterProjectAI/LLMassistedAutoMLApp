@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from sklearn.model_selection import train_test_split
 from langchain.prompts import (
     ChatPromptTemplate,
     MessagesPlaceholder,
@@ -13,7 +14,7 @@ from langchain.memory import ConversationBufferMemory
 import utils
 
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Data uploading", "Data characteristics", "Initial model", "Refine model" "Export pipeline"])
+page = st.sidebar.radio("Go to", ["Data uploading", "Data characteristics", "Metrics suggestions", "Initial model", "Refine model" "Export pipeline"])
 
 st.title('LLM assisted AutoML app')
 
@@ -40,18 +41,31 @@ if page == "Data uploading":
 if page == "Data characteristics":
     st.write("""#### Data Characteristics""")
     st.header("Data report")
-    st.write(utils.data_report(st.session_state.df))
+    st.session_state.report, st.session_state.target = utils.data_report(st.session_state.df)
+    st.write(st.session_state.report)
 
-if page == "Initial model":
-    st.write("""#### Refine Model""")
-
-    openai_api_key = '"YOUR API KEY HERE"'
+if page == "Metrics suggestions":
+    st.write("""#### Metrics suggestions""")
+    st.session_state.X_train, st.session_state.X_test, st.session_state.y_train, st.session_state.y_test = train_test_split(st.session_state.df, st.session_state.target, test_size=0.2, random_state=42)
+    openai_api_key = '"YOUR_OPENAI_API_KEY"'
     llm = ChatOpenAI(temperature=0.6, openai_api_key=openai_api_key)
     memory = ConversationBufferMemory(return_messages=True)
-    system_message = f"""You are a senior data scientist tasked with the guiding of the use of an autoML tool to 
-    discover the best model type and model configuration for a classification task on a dataset.Your role involves 
-    understanding the dataset characteristics, proposing suitable metrics, hyperparameters, and their search spaces, 
-    analyzing results, and iterating on configurations. """
+    st.session_state.last_run_best_score = []
+    st.session_state.all_time_best_score = []
+    system_message = f"""
+    You are a senior data scientist tasked with guiding the use of an AutoML tool  
+    to discover the best XGBoost model configurations for a given binary classification dataset. 
+    Your role involves understanding the dataset characteristics, proposing suitable metrics, 
+    hyperparameters, and their search spaces, analyzing results, and iterating on configurations. 
+    """
+    prompt = ChatPromptTemplate.from_messages([
+        SystemMessagePromptTemplate.from_template(system_message),
+        MessagesPlaceholder(variable_name="history"),
+        HumanMessagePromptTemplate.from_template("""{input}""")
+    ])
+    conversation = ConversationChain(memory=memory, prompt=prompt, llm=llm, verbose=False)
 
+    prompt = utils.suggest_metrics(st.session_state.report)
+    response = conversation.predict(input=prompt)
     st.header("GPT Chat")
-    user_input = st.text_area("Enter your prompt here:", "")
+    st.write(response)
