@@ -85,6 +85,7 @@ if page == "Initial model":
     search_space_string = utils.extract_search_space(response)
     search_space_dict = {}
     if search_space_string:
+        import scipy.stats as stats
         from scipy.stats import randint, uniform
         exec(search_space_string, globals(), search_space_dict)
         search_space = search_space_dict.get('search_space', {})
