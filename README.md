@@ -7,3 +7,4 @@
 ![Upload](Screenshots/Upload.png)
 ![Data Report](Screenshots/Data_report.png)
 ![Metrics](Screenshots/Metrics.png)
+![Initial Model](Screenshots/Initialmodel.png)
