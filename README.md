@@ -1,4 +1,6 @@
 # LLM assisted AutoML App
+> [!IMPORTANT]
+> You will need to replace "YOUR API KEY HERE" by your actual openai api key (openai_api_key = '"YOUR API KEY HERE"' ligne 25 in app.py)
 
 ## Project description
 This project aims to create a web app allowing none initiated people to create a suitable and fine tuned model for the dataset they provide.
