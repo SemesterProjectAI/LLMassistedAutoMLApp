@@ -19,7 +19,7 @@ from sklearn.model_selection import HalvingRandomSearchCV
 from scipy.stats import randint, uniform
 
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Data uploading", "Data characteristics", "Metrics suggestions", "Initial model", "Refine model"])
+page = st.sidebar.radio("Go to", ["Data uploading", "Data characteristics", "Metrics suggestions", "Initial model", "Method selection", "Refine model"])
 
 st.title('LLM assisted AutoML app')
 openai_api_key = '"YOUR API KEY HERE"'
@@ -87,6 +87,7 @@ if page == "Initial model":
     if search_space_string:
         import scipy.stats as stats
         from scipy.stats import randint, uniform
+
         exec(search_space_string, globals(), search_space_dict)
         search_space = search_space_dict.get('search_space', {})
         clf = xgb.XGBClassifier(seed=42, objective='binary:logistic', enable_categorical=True, eval_metric=st.session_state.metric, use_label_encoder=False)
@@ -97,9 +98,62 @@ if page == "Initial model":
         y_pred = search.predict(st.session_state.X_test)
         y_pred_proba = search.predict_proba(st.session_state.X_test)
         utils.metrics_display(st.session_state.y_test, y_pred, y_pred_proba[:, 1])
+        top_n, best_score = utils.extract_logs(search)
+        st.session_state.last_run_best_score.append(best_score)
+        if len(st.session_state.all_time_best_score) == 0:
+            st.session_state.all_time_best_score.append(best_score)
+        else:
+            if st.session_state.all_time_best_score[0] < best_score:
+                st.session_state.all_time_best_score[0] = best_score
+        st.session_state.prompt_ss = utils.suggest_refine_search_space(top_n, st.session_state.last_run_best_score[-1], st.session_state.all_time_best_score[-1])
     else:
         st.error("No search space found for initial model")
 
+if page == "Method selection":
+
+    st.header("Refine Model")
+    options = ['Fast method (least precise)', 'Standard method', 'Long method (most precise)']
+
+    selected_option = st.selectbox('Select an option', options)
+    st.write('You selected :', selected_option)
+    if selected_option == 'Fast method (least precise)':
+        st.session_state.num_iter = 1
+    elif selected_option == 'Standard method':
+        st.session_state.num_iter = 2
+    elif selected_option == 'Long method (most precise)':
+        st.session_state.num_iter = 3
 
 if page == "Refine model":
+
     st.header("Refine Model")
+    for i in range(st.session_state.num_iter):
+        response = conversation.predict(input=st.session_state.prompt_ss)
+        st.write(response)
+        search_space_string = utils.extract_search_space(response)
+        search_space_dict = {}
+        if search_space_string:
+            import scipy.stats as stats
+            from scipy.stats import randint, uniform
+
+            exec(search_space_string, globals(), search_space_dict)
+            search_space = search_space_dict.get('search_space', {})
+            clf = xgb.XGBClassifier(seed=42, objective='binary:logistic', enable_categorical=True, eval_metric=st.session_state.metric, use_label_encoder=False)
+
+            search = HalvingRandomSearchCV(clf, search_space, scoring=st.session_state.metric, n_candidates=50,
+                                           cv=5, min_resources='exhaust', factor=3, verbose=1).fit(st.session_state.X_train, st.session_state.y_train)
+
+            y_pred = search.predict(st.session_state.X_test)
+            y_pred_proba = search.predict_proba(st.session_state.X_test)
+
+            top_n, best_score = utils.extract_logs(search)
+            st.session_state.last_run_best_score.append(best_score)
+            if len(st.session_state.all_time_best_score) == 0:
+                st.session_state.all_time_best_score.append(best_score)
+            else:
+                if st.session_state.all_time_best_score[0] < best_score:
+                    st.session_state.all_time_best_score[0] = best_score
+            st.session_state.prompt_ss = utils.suggest_refine_search_space(top_n, st.session_state.last_run_best_score[-1], st.session_state.all_time_best_score[-1])
+        else:
+            st.error("No search space found for refined model")
+
+    utils.metrics_display(st.session_state.y_test, y_pred, y_pred_proba[:, 1])

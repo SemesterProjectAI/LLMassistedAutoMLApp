@@ -170,3 +170,68 @@ def extract_metric(text):
     if match:
         return match.group(0)
     return None
+
+
+def extract_logs(search):
+    # Assuming you have the logs in a DataFrame called df
+    df = pd.DataFrame(search.cv_results_)
+
+    # Number of top-performing configurations you want to extract
+    top_n = 5
+
+    # 1. Identify top-performing configurations using rank_test_score
+    top_configs = df.nsmallest(top_n, 'rank_test_score').reset_index(drop=True)
+
+    hyperparameter_columns = [
+        'param_colsample_bylevel', 'param_colsample_bytree', 'param_gamma',
+        'param_learning_rate', 'param_max_depth', 'param_min_child_weight',
+        'param_n_estimators', 'param_reg_alpha', 'param_reg_lambda',
+        'param_scale_pos_weight', 'param_subsample'
+    ]
+
+    # Extracting the top-N configurations as strings
+    config_strings = []
+    for index, row in top_configs.iterrows():
+        config_str = ', '.join([f"{col[6:]}: {row[col]}" for col in hyperparameter_columns])
+        config_strings.append(f"Configuration {index + 1} ({row['mean_test_score']:.4f} test score): {config_str}")
+
+    # Joining them together for a complete summary
+    top_config_summary = '\n'.join(config_strings)
+
+    # Best test score
+    last_run_best_score = top_configs.loc[0, 'mean_test_score']
+
+    return top_config_summary, last_run_best_score
+
+
+def suggest_refine_search_space(top_n, last_run_best_score, all_time_best_score):
+    prompt = f"""
+    Given your previously suggested search space, the obtained top configurations with their 
+    test scores:
+    {top_n}
+
+    The best score from the last run was {last_run_best_score}, while the best score ever 
+    achieved in all previous runs is {all_time_best_score}
+
+    Remember, tunable hyperparameters are: n_estimators, max_depth, min_child_samples, gamma, 
+    scale_pos_weight, learning_rate, subsample, colsample_bylevel, colsample_bytree, reg_alpha, 
+    and reg_lambda.
+
+    Given the insights from the search history, your expertise in ML, and the need to further 
+    explore the search space, please suggest refinements for the search space in the next optimization round. 
+    Consider both narrowing and expanding the search space for hyperparameters where appropriate.
+
+    For each recommendation, please:
+    1. Explicitly tie back to any general best practices or patterns you are aware of regarding XGBoost tuning
+    2. Then, relate to the insights from the search history and explain how they align or deviate from these 
+    practices or patterns.
+    3. If suggesting an expansion of the search space, please provide a rationale for why a broader range could 
+    be beneficial.
+
+
+    Briefly summarize your reasoning for the refinements and then present the adjusted configurations. 
+    Enclose your refined configurations between markers [BEGIN] and [END], and assign your 
+    configuration to a variable named search_space.
+    """
+
+    return prompt
