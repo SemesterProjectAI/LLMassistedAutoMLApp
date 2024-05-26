@@ -12,6 +12,9 @@ The only two inputs the users have to do are :
 > [!WARNING]
 > For now only classification tasks are available
 
+## How to use
+streamlit run [folder path]\app.py
+
 ## Functioning principle
 ![Diagram](Diagram.png)
 
